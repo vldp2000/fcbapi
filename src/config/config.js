@@ -10,6 +10,7 @@ module.exports = {
   viewProgramMessage: 'VIEW_PROGRAM_MESSAGE',
   viewSongMessage: 'VIEW_SONG_MESSAGE',
   viewEditModeMessage: 'VIEW_EDIT_MODE_MESSAGE',
+  viewGigChangedMessage: 'VIEW_GIG_CHANGED_MESSAGE',
   controllerProgramMessage: 'CONTROLLER_PROGRAM_MESSAGE',
   controllerSongMessage: 'CONTROLLER_SONG_MESSAGE',
   controllerSyncMessage: 'CONTROLLER_SYNC_MESSAGE',

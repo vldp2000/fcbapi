@@ -10,6 +10,7 @@ process.env.FCB_DATA_PATH = tempRoot
 const PresetUsageController = require('../src/controllers/PresetUsageController')
 const ReadDataController = require('../src/controllers/ReadDataController')
 const SaveDataController = require('../src/controllers/SaveDataController')
+const config = require('../src/config/config')
 const routes = require('../src/routes')
 
 function writeJson (fileName, data) {
@@ -476,6 +477,13 @@ function testRoutesRegisterApiWriteEndpoints () {
   ])
 }
 
+function testSocketRelayIncludesGigChangedMessage () {
+  const appSource = fs.readFileSync(path.join(__dirname, '..', 'src', 'app.js'), 'utf8')
+
+  assert.strictEqual(config.viewGigChangedMessage, 'VIEW_GIG_CHANGED_MESSAGE')
+  assert(appSource.includes('config.viewGigChangedMessage'), 'app.js should relay gig changed messages over Socket.IO')
+}
+
 async function run () {
   try {
     const tests = [
@@ -495,7 +503,8 @@ async function run () {
       testGetIdReturnsCurrentIdAndIncrementsStoredId,
       testGetScheduledGigIdReadsCurrentGig,
       testRoutesRegisterApiBusinessEndpoints,
-      testRoutesRegisterApiWriteEndpoints
+      testRoutesRegisterApiWriteEndpoints,
+      testSocketRelayIncludesGigChangedMessage
     ]
 
     for (let test of tests) {

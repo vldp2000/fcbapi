@@ -38,6 +38,12 @@ try {
       console.log(data)
       io.emit(`${config.viewEditModeMessage}`, data)
     })
+
+    socket.on(`${config.viewGigChangedMessage}`, function(data) {
+      console.log(config.viewGigChangedMessage)
+      console.log(data)
+      io.emit(`${config.viewGigChangedMessage}`, data)
+    })
     
     
     socket.on(`${config.controllerPresetVoluleMessage}`, function(data) {

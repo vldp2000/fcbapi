@@ -14,6 +14,7 @@ module.exports = (app) => {
   app.get('/id/instrument', ReadDataController.getId)
 
   app.put('/preset/:id', SaveDataController.saveDataToFile)
+  app.delete('/preset/:id', SaveDataController.deleteDataFile)
 
   app.get('/all/preset', ReadDataController.readDataFromFile)
   app.get('/id/preset', ReadDataController.getId)

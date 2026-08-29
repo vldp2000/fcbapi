@@ -342,6 +342,36 @@ async function testSaveDataReturns500WhenFolderIsMissing () {
   assert(res.payload.error.includes('an error has occured trying to save data'))
 }
 
+async function testDeletePresetRemovesFileAndInvalidatesPresetUsageCache () {
+  let res = await callGetPresetUsage(1, 24)
+  assert.strictEqual(res.payload.usageCount, 1)
+
+  res = makeResponse()
+  await SaveDataController.deleteDataFile({
+    url: '/preset/121',
+    params: {
+      id: 121
+    }
+  }, res)
+
+  assert.strictEqual(res.statusCode, 200)
+  assert.strictEqual(fs.existsSync(path.join(tempRoot, 'preset', '121.json')), false)
+}
+
+async function testDeleteDataReturns500WhenFileIsMissing () {
+  const res = makeResponse()
+
+  await SaveDataController.deleteDataFile({
+    url: '/preset/999',
+    params: {
+      id: 999
+    }
+  }, res)
+
+  assert.strictEqual(res.statusCode, 500)
+  assert(res.payload.error.includes('an error has occured trying to delete data'))
+}
+
 async function testSaveScheduledGigId () {
   const res = makeResponse()
   await SaveDataController.saveScheduledGigId({
@@ -437,7 +467,8 @@ function testRoutesRegisterApiBusinessEndpoints () {
     get (routePath, handler) {
       registeredRoutes.push({ method: 'GET', routePath, handler })
     },
-    put () {}
+    put () {},
+    delete () {}
   })
 
   assert.deepStrictEqual(registeredRoutes, [
@@ -464,6 +495,9 @@ function testRoutesRegisterApiWriteEndpoints () {
     get () {},
     put (routePath, handler) {
       registeredRoutes.push({ method: 'PUT', routePath, handler })
+    },
+    delete (routePath, handler) {
+      registeredRoutes.push({ method: 'DELETE', routePath, handler })
     }
   })
 
@@ -471,6 +505,7 @@ function testRoutesRegisterApiWriteEndpoints () {
     { method: 'PUT', routePath: '/song/:id', handler: SaveDataController.saveDataToFile },
     { method: 'PUT', routePath: '/instrument/:id', handler: SaveDataController.saveDataToFile },
     { method: 'PUT', routePath: '/preset/:id', handler: SaveDataController.saveDataToFile },
+    { method: 'DELETE', routePath: '/preset/:id', handler: SaveDataController.deleteDataFile },
     { method: 'PUT', routePath: '/instrumentbank/:id', handler: SaveDataController.saveDataToFile },
     { method: 'PUT', routePath: '/gig/:id', handler: SaveDataController.saveDataToFile },
     { method: 'PUT', routePath: '/currentgig', handler: SaveDataController.saveScheduledGigId }
@@ -495,6 +530,8 @@ async function run () {
       testSaveDataInvalidatesPresetUsageCache,
       testSaveDataWritesNonPresetDataWithoutInvalidatingPresetUsageCache,
       testSaveDataReturns500WhenFolderIsMissing,
+      testDeletePresetRemovesFileAndInvalidatesPresetUsageCache,
+      testDeleteDataReturns500WhenFileIsMissing,
       testSaveScheduledGigId,
       testSaveScheduledGigIdReturns500WhenFolderIsMissing,
       testReadDataFromFileReadsAllJsonFilesOnly,

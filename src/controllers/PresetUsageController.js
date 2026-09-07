@@ -1,10 +1,6 @@
 const config = require('../config/config')
-const fs = require('fs')
+const fs = require('fs').promises
 const { resolve } = require('path')
-const promisify = require('promisify-node')
-
-const readdir = promisify(fs.readdir)
-const readFile = promisify(fs.readFile)
 
 let cacheLoaded = false
 let presetList = []
@@ -18,14 +14,14 @@ function getUsageKey (instrumentId, midiPc) {
 
 async function readAllFiles (objName) {
   const folder = resolve(config.filePath + objName)
-  const files = await readdir(folder) || []
+  const files = await fs.readdir(folder) || []
   const result = []
 
   for (let file of files) {
     if (!file.endsWith('.json')) continue
 
     const fileName = `${folder}/${file}`
-    const fileContent = await readFile(fileName, 'utf8')
+    const fileContent = await fs.readFile(fileName, 'utf8')
     result.push(JSON.parse(fileContent))
   }
 

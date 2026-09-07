@@ -84,3 +84,12 @@ try {
 }
 
 require('./routes')(app)
+
+app.use(function(error, req, res, next) {
+  const statusCode = error.statusCode || (error.code === 'ENOENT' ? 404 : 500)
+  console.error(error)
+  if (res.headersSent) return next(error)
+  res.status(statusCode).send({
+    error: statusCode === 500 ? 'Internal server error' : error.message
+  })
+})

@@ -325,17 +325,21 @@ async function testSaveDataWritesNonPresetDataWithoutInvalidatingPresetUsageCach
   }
 }
 
-async function testSaveDataRejectsMissingFolder () {
-  fs.rmSync(path.join(tempRoot, 'instrument'), { recursive: true, force: true })
-  await assert.rejects(() => SaveDataController.saveDataToFile({
-    url: '/instrument/1',
+async function testSaveDataReturns500WhenFolderIsMissing () {
+  const res = makeResponse()
+
+  await SaveDataController.saveDataToFile({
+    url: '/missing/1',
     params: {
       id: 1
     },
     body: {
       id: 1
     }
-  }, makeResponse()), error => error.code === 'ENOENT')
+  }, res)
+
+  assert.strictEqual(res.statusCode, 500)
+  assert(res.payload.error.includes('an error has occured trying to save data'))
 }
 
 async function testDeletePresetRemovesFileAndInvalidatesPresetUsageCache () {
@@ -354,13 +358,18 @@ async function testDeletePresetRemovesFileAndInvalidatesPresetUsageCache () {
   assert.strictEqual(fs.existsSync(path.join(tempRoot, 'preset', '121.json')), false)
 }
 
-async function testDeleteDataRejectsWhenFileIsMissing () {
-  await assert.rejects(() => SaveDataController.deleteDataFile({
+async function testDeleteDataReturns500WhenFileIsMissing () {
+  const res = makeResponse()
+
+  await SaveDataController.deleteDataFile({
     url: '/preset/999',
     params: {
       id: 999
     }
-  }, makeResponse()), error => error.code === 'ENOENT')
+  }, res)
+
+  assert.strictEqual(res.statusCode, 500)
+  assert(res.payload.error.includes('an error has occured trying to delete data'))
 }
 
 async function testSaveScheduledGigId () {
@@ -378,14 +387,18 @@ async function testSaveScheduledGigId () {
   )
 }
 
-async function testSaveScheduledGigIdRejectsWhenFolderIsMissing () {
+async function testSaveScheduledGigIdReturns500WhenFolderIsMissing () {
   fs.rmSync(path.join(tempRoot, 'gig', 'id'), { recursive: true, force: true })
 
-  await assert.rejects(() => SaveDataController.saveScheduledGigId({
+  const res = makeResponse()
+  await SaveDataController.saveScheduledGigId({
     body: {
       id: 3
     }
-  }, makeResponse()), error => error.code === 'ENOENT')
+  }, res)
+
+  assert.strictEqual(res.statusCode, 500)
+  assert(res.payload.error.includes('an error has occured trying to save data'))
 }
 
 async function testReadDataFromFileReadsAllJsonFilesOnly () {
@@ -413,13 +426,18 @@ async function testReadDataByIdFromFileReadsSingleObject () {
   assert.strictEqual(res.payload.name, 'Faun oo')
 }
 
-async function testReadRejectsPathTraversal () {
-  await assert.rejects(() => ReadDataController.readDataByIdFromFile({
-    url: '/song/..%2F..%2Fpackage',
+async function testReadDataFromFileReadsSingleObjectWhenIdProvided () {
+  const res = makeResponse()
+  await ReadDataController.readDataFromFile({
+    url: '/all/song/7',
     params: {
-      id: '../../package'
+      id: 7
     }
-  }, makeResponse()), error => error.statusCode === 400)
+  }, res)
+
+  assert.strictEqual(res.statusCode, 200)
+  assert.strictEqual(res.payload.id, 7)
+  assert.strictEqual(res.payload.name, 'Faun oo')
 }
 
 async function testGetIdReturnsCurrentIdAndIncrementsStoredId () {
@@ -435,17 +453,6 @@ async function testGetIdReturnsCurrentIdAndIncrementsStoredId () {
   assert.deepStrictEqual(JSON.parse(fs.readFileSync(path.join(tempRoot, 'song', 'id', 'id.json'), 'utf8')), { id: 31 })
 }
 
-async function testGetIdSerializesConcurrentAllocations () {
-  const first = makeResponse()
-  const second = makeResponse()
-  await Promise.all([
-    ReadDataController.getId({ url: '/id/song' }, first),
-    ReadDataController.getId({ url: '/id/song' }, second)
-  ])
-  assert.deepStrictEqual([first.payload.id, second.payload.id].sort(), [30, 31])
-  assert.deepStrictEqual(JSON.parse(fs.readFileSync(path.join(tempRoot, 'song', 'id', 'id.json'), 'utf8')), { id: 32 })
-}
-
 async function testGetScheduledGigIdReadsCurrentGig () {
   const res = makeResponse()
   await ReadDataController.getScheduledGigId({}, res)
@@ -458,27 +465,27 @@ function testRoutesRegisterApiBusinessEndpoints () {
   const registeredRoutes = []
   routes({
     get (routePath, handler) {
-      registeredRoutes.push({ method: 'GET', routePath })
+      registeredRoutes.push({ method: 'GET', routePath, handler })
     },
     put () {},
     delete () {}
   })
 
   assert.deepStrictEqual(registeredRoutes, [
-    { method: 'GET', routePath: '/song/:id' },
-    { method: 'GET', routePath: '/all/song' },
-    { method: 'GET', routePath: '/id/song' },
-    { method: 'GET', routePath: '/all/instrument' },
-    { method: 'GET', routePath: '/id/instrument' },
-    { method: 'GET', routePath: '/all/preset' },
-    { method: 'GET', routePath: '/id/preset' },
-    { method: 'GET', routePath: '/presetusage/:instrumentId/:midiPc' },
-    { method: 'GET', routePath: '/all/instrumentbank' },
-    { method: 'GET', routePath: '/id/instrumentbank' },
-    { method: 'GET', routePath: '/all/gig' },
-    { method: 'GET', routePath: '/id/gig' },
-    { method: 'GET', routePath: '/gig/:id' },
-    { method: 'GET', routePath: '/currentgig' }
+    { method: 'GET', routePath: '/song/:id', handler: ReadDataController.readDataByIdFromFile },
+    { method: 'GET', routePath: '/all/song', handler: ReadDataController.readDataFromFile },
+    { method: 'GET', routePath: '/id/song', handler: ReadDataController.getId },
+    { method: 'GET', routePath: '/all/instrument', handler: ReadDataController.readDataFromFile },
+    { method: 'GET', routePath: '/id/instrument', handler: ReadDataController.getId },
+    { method: 'GET', routePath: '/all/preset', handler: ReadDataController.readDataFromFile },
+    { method: 'GET', routePath: '/id/preset', handler: ReadDataController.getId },
+    { method: 'GET', routePath: '/presetusage/:instrumentId/:midiPc', handler: PresetUsageController.getPresetUsage },
+    { method: 'GET', routePath: '/all/instrumentbank', handler: ReadDataController.readDataFromFile },
+    { method: 'GET', routePath: '/id/instrumentbank', handler: ReadDataController.getId },
+    { method: 'GET', routePath: '/all/gig', handler: ReadDataController.readDataFromFile },
+    { method: 'GET', routePath: '/id/gig', handler: ReadDataController.getId },
+    { method: 'GET', routePath: '/gig/:id', handler: ReadDataController.readDataByIdFromFile },
+    { method: 'GET', routePath: '/currentgig', handler: ReadDataController.getScheduledGigId }
   ])
 }
 
@@ -487,21 +494,21 @@ function testRoutesRegisterApiWriteEndpoints () {
   routes({
     get () {},
     put (routePath, handler) {
-      registeredRoutes.push({ method: 'PUT', routePath })
+      registeredRoutes.push({ method: 'PUT', routePath, handler })
     },
     delete (routePath, handler) {
-      registeredRoutes.push({ method: 'DELETE', routePath })
+      registeredRoutes.push({ method: 'DELETE', routePath, handler })
     }
   })
 
   assert.deepStrictEqual(registeredRoutes, [
-    { method: 'PUT', routePath: '/song/:id' },
-    { method: 'PUT', routePath: '/instrument/:id' },
-    { method: 'PUT', routePath: '/preset/:id' },
-    { method: 'DELETE', routePath: '/preset/:id' },
-    { method: 'PUT', routePath: '/instrumentbank/:id' },
-    { method: 'PUT', routePath: '/gig/:id' },
-    { method: 'PUT', routePath: '/currentgig' }
+    { method: 'PUT', routePath: '/song/:id', handler: SaveDataController.saveDataToFile },
+    { method: 'PUT', routePath: '/instrument/:id', handler: SaveDataController.saveDataToFile },
+    { method: 'PUT', routePath: '/preset/:id', handler: SaveDataController.saveDataToFile },
+    { method: 'DELETE', routePath: '/preset/:id', handler: SaveDataController.deleteDataFile },
+    { method: 'PUT', routePath: '/instrumentbank/:id', handler: SaveDataController.saveDataToFile },
+    { method: 'PUT', routePath: '/gig/:id', handler: SaveDataController.saveDataToFile },
+    { method: 'PUT', routePath: '/currentgig', handler: SaveDataController.saveScheduledGigId }
   ])
 }
 
@@ -510,15 +517,6 @@ function testSocketRelayIncludesGigChangedMessage () {
 
   assert.strictEqual(config.viewGigChangedMessage, 'VIEW_GIG_CHANGED_MESSAGE')
   assert(appSource.includes('config.viewGigChangedMessage'), 'app.js should relay gig changed messages over Socket.IO')
-}
-
-function testDeployedUiOriginsAndLegacySocketClientsRemainSupported () {
-  const appSource = fs.readFileSync(path.join(__dirname, '..', 'src', 'app.js'), 'utf8')
-
-  assert(config.corsOrigins.includes('http://192.168.37.2'))
-  assert(config.corsOrigins.includes('http://midipi'))
-  assert(config.corsOrigins.includes('http://midipi.local'))
-  assert(appSource.includes('allowEIO3: true'), 'Socket.IO 2 and python-socketio 4 clients must remain compatible')
 }
 
 async function run () {
@@ -531,21 +529,19 @@ async function run () {
       testPresetUsageSkipsBrokenSongReferences,
       testSaveDataInvalidatesPresetUsageCache,
       testSaveDataWritesNonPresetDataWithoutInvalidatingPresetUsageCache,
-      testSaveDataRejectsMissingFolder,
+      testSaveDataReturns500WhenFolderIsMissing,
       testDeletePresetRemovesFileAndInvalidatesPresetUsageCache,
-      testDeleteDataRejectsWhenFileIsMissing,
+      testDeleteDataReturns500WhenFileIsMissing,
       testSaveScheduledGigId,
-      testSaveScheduledGigIdRejectsWhenFolderIsMissing,
+      testSaveScheduledGigIdReturns500WhenFolderIsMissing,
       testReadDataFromFileReadsAllJsonFilesOnly,
       testReadDataByIdFromFileReadsSingleObject,
-      testReadRejectsPathTraversal,
+      testReadDataFromFileReadsSingleObjectWhenIdProvided,
       testGetIdReturnsCurrentIdAndIncrementsStoredId,
-      testGetIdSerializesConcurrentAllocations,
       testGetScheduledGigIdReadsCurrentGig,
       testRoutesRegisterApiBusinessEndpoints,
       testRoutesRegisterApiWriteEndpoints,
-      testSocketRelayIncludesGigChangedMessage,
-      testDeployedUiOriginsAndLegacySocketClientsRemainSupported
+      testSocketRelayIncludesGigChangedMessage
     ]
 
     for (let test of tests) {

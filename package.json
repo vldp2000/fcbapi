@@ -4,8 +4,7 @@
   "description": "",
   "main": "index.js",
   "scripts": {
-    "start": "node src/app.js",
-    "dev": "nodemon src/app.js",
+    "start": "nodemon src/app.js --exec  \"npm run lint && node\"",
     "test": "node test/run-tests.js",
     "lint": "eslint src/**/*.js",
     "lint:fix": "eslint src/**/*.js  --fix",
@@ -14,17 +13,25 @@
   "keywords": [],
   "author": "Vlad",
   "license": "ISC",
-  "engines": {
-    "node": ">=20"
-  },
   "dependencies": {
-    "cors": "^2.8.6",
-    "express": "^5.2.1",
-    "joi": "^18.2.8",
-    "socket.io": "^4.8.3"
+    "body-parser": "^1.19.0",
+    "cors": "^2.8.4",
+    "express": "^4.17.1",
+    "joi": "^10.6.0",
+    "nodemon": "^2.0.2",
+    "promisify-node": "^0.5.0",
+    "socket.io": "^2.3.0",
+    "vue-socket.io-extended": "^4.0.1"
   },
   "devDependencies": {
-    "eslint": "^8.57.1",
-    "nodemon": "^3.1.10"
+    "eslint": "^6.8.0",
+    "eslint-config-google": "^0.14.0",
+    "eslint-config-standard": "^10.2.1",
+    "eslint-plugin-import": "^2.7.0",
+    "eslint-plugin-node": "^5.1.1",
+    "eslint-plugin-promise": "^3.5.0",
+    "eslint-plugin-standard": "^3.0.1",
+    "eslint-plugin-vue": "^6.0.1",
+    "nodemon": ""
   }
 }

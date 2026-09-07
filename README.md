@@ -12,6 +12,8 @@ $env:FCB_DATA_PATH="D:\V\Projects\fcbdata"
 
 ## Install
 
+Node.js 20 or newer is required.
+
 ```powershell
 npm install
 ```
@@ -21,6 +23,9 @@ npm install
 ```powershell
 npm start
 ```
+
+Set `FCB_CORS_ORIGINS` to a comma-separated list when the UI is served from
+origins other than the local development server or `http://192.168.37.2`.
 
 ## Test
 

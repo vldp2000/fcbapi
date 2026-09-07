@@ -7,6 +7,9 @@ module.exports = {
   httpPort: process.env.PORT || 8081,
   messagePort: 8081,
   filePath: addTrailingSlash(process.env.FCB_DATA_PATH || '/home/pi/fcbdata/'),
+  corsOrigins: process.env.FCB_CORS_ORIGINS
+    ? process.env.FCB_CORS_ORIGINS.split(',').map(value => value.trim())
+    : ['http://localhost:8080', 'http://192.168.37.2', 'http://midipi', 'http://midipi.local'],
   viewProgramMessage: 'VIEW_PROGRAM_MESSAGE',
   viewSongMessage: 'VIEW_SONG_MESSAGE',
   viewEditModeMessage: 'VIEW_EDIT_MODE_MESSAGE',

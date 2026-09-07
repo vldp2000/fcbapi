@@ -1,16 +1,13 @@
 const config = require('../config/config')
-const fs = require('fs')
+const fs = require('fs').promises
 const { resolve } = require('path')
-const promisify = require('promisify-node')
-
-const readdir = promisify(fs.readdir)
-const readFile = promisify(fs.readFile)
 
 let cacheLoaded = false
 let presetList = []
 let songList = []
 let presetById = {}
 let usageByActualPreset = {}
+let cacheSignature = ''
 
 function getUsageKey (instrumentId, midiPc) {
   return `${parseInt(instrumentId)}:${parseInt(midiPc)}`
@@ -18,14 +15,14 @@ function getUsageKey (instrumentId, midiPc) {
 
 async function readAllFiles (objName) {
   const folder = resolve(config.filePath + objName)
-  const files = await readdir(folder) || []
+  const files = await fs.readdir(folder) || []
   const result = []
 
   for (let file of files) {
     if (!file.endsWith('.json')) continue
 
     const fileName = `${folder}/${file}`
-    const fileContent = await readFile(fileName, 'utf8')
+    const fileContent = await fs.readFile(fileName, 'utf8')
     result.push(JSON.parse(fileContent))
   }
 
@@ -75,13 +72,28 @@ function buildUsageIndex () {
 }
 
 async function loadCache () {
-  if (cacheLoaded) return
+  const signature = await getCacheSignature()
+  if (cacheLoaded && signature === cacheSignature) return
 
   presetList = await readAllFiles('preset')
   songList = await readAllFiles('song')
   buildPresetLookup()
   buildUsageIndex()
   cacheLoaded = true
+  cacheSignature = signature
+}
+
+async function getCacheSignature () {
+  const signatures = []
+  for (const objectName of ['preset', 'song']) {
+    const folder = resolve(config.filePath + objectName)
+    const files = (await fs.readdir(folder)).filter(file => file.endsWith('.json')).sort()
+    for (const file of files) {
+      const stat = await fs.stat(resolve(folder, file))
+      signatures.push(`${objectName}/${file}:${stat.size}:${stat.mtimeMs}`)
+    }
+  }
+  return signatures.join('|')
 }
 
 function invalidateCache () {
@@ -90,6 +102,7 @@ function invalidateCache () {
   songList = []
   presetById = {}
   usageByActualPreset = {}
+  cacheSignature = ''
 }
 
 module.exports = {

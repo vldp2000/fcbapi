@@ -20,6 +20,24 @@ module.exports = {
     res.status(200).send({ message: 'OK' })
   },
 
+  async saveSongPresetsWithHistory (req, res) {
+    const id = store.validateId(req.params.id)
+    const body = store.validateBody(req.body, id)
+    await store.writeHistorySnapshot('songpresets', id, body)
+    await store.atomicWriteJson(store.dataFile('song', id), body)
+    PresetUsageController.invalidateCache()
+    res.status(200).send({ message: 'OK' })
+  },
+
+  async savePresetWithHistory (req, res) {
+    const id = store.validateId(req.params.id)
+    const body = store.validateBody(req.body, id)
+    await store.writeHistorySnapshot('preset', id, body)
+    await store.atomicWriteJson(store.dataFile('preset', id), body)
+    PresetUsageController.invalidateCache()
+    res.status(200).send({ message: 'OK' })
+  },
+
   async deleteDataFile (req, res) {
     const objectName = store.objectNameFromRequest(req, 1)
     await fs.unlink(store.dataFile(objectName, req.params.id))

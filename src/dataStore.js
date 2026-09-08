@@ -4,6 +4,7 @@ const config = require('./config/config')
 
 const OBJECT_NAMES = new Set(['song', 'preset', 'instrument', 'instrumentbank', 'gig'])
 const idLocks = new Map()
+let historySequence = 0
 
 function httpError (statusCode, message) {
   const error = new Error(message)
@@ -57,6 +58,23 @@ async function atomicWriteJson (fileName, data) {
   }
 }
 
+async function writeHistorySnapshot (historyType, id, data) {
+  if (historyType !== 'songpresets' && historyType !== 'preset') {
+    throw httpError(400, 'Unsupported history type')
+  }
+
+  const historyFolder = resolveInsideDataRoot('history', historyType, String(validateId(id)))
+  await fs.mkdir(historyFolder, { recursive: true })
+
+  // The timestamp keeps files naturally sortable; the process-local sequence
+  // prevents two saves in the same millisecond from selecting the same name.
+  historySequence += 1
+  const timestamp = new Date().toISOString().replace(/[:.]/g, '-')
+  const fileName = path.join(historyFolder, `${timestamp}-${process.pid}-${historySequence}.json`)
+  await fs.writeFile(fileName, JSON.stringify(data), { encoding: 'utf8', flag: 'wx' })
+  return fileName
+}
+
 async function allocateId (objectName) {
   const fileName = resolveInsideDataRoot(objectName, 'id', 'id.json')
   const previous = idLocks.get(fileName) || Promise.resolve()
@@ -81,6 +99,7 @@ module.exports = {
   httpError,
   objectNameFromRequest,
   resolveInsideDataRoot,
+  writeHistorySnapshot,
   validateBody,
   validateId
 }

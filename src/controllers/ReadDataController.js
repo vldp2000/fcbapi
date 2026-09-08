@@ -25,6 +25,38 @@ module.exports = {
     }
   },
 
+  async readSongPresetHistory (req, res) {
+    const songId = store.validateId(req.params.id)
+    const folder = store.resolveInsideDataRoot('history', 'songpresets', String(songId))
+    let files
+    try {
+      files = (await fs.readdir(folder)).filter(file => file.endsWith('.json'))
+    } catch (error) {
+      if (error.code === 'ENOENT') {
+        res.send([])
+        return
+      }
+      throw error
+    }
+
+    const records = await Promise.all(files.map(async file => {
+      const fileName = path.join(folder, file)
+      const [snapshot, fileStats] = await Promise.all([
+        fs.readFile(fileName, 'utf8').then(JSON.parse),
+        fs.stat(fileName)
+      ])
+      return {
+        id: file,
+        savedAt: fileStats.mtime.toISOString(),
+        songName: snapshot.name || '',
+        programList: Array.isArray(snapshot.programList) ? snapshot.programList : []
+      }
+    }))
+
+    records.sort((left, right) => right.savedAt.localeCompare(left.savedAt) || right.id.localeCompare(left.id))
+    res.send(records)
+  },
+
   async getId (req, res) {
     const objectName = store.objectNameFromRequest(req, 2)
     res.send(await store.allocateId(objectName))

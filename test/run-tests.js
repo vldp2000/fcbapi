@@ -338,6 +338,95 @@ async function testSaveDataRejectsMissingFolder () {
   }, makeResponse()), error => error.code === 'ENOENT')
 }
 
+async function testSaveSongPresetsWritesImmutableHistory () {
+  const firstSong = {
+    id: 7,
+    name: 'Faun oo',
+    programList: [{ id: 1, presetList: [{ id: 1, volume: 70 }] }]
+  }
+  const secondSong = {
+    id: 7,
+    name: 'Faun oo',
+    programList: [{ id: 1, presetList: [{ id: 1, volume: 85 }] }]
+  }
+
+  await SaveDataController.saveSongPresetsWithHistory({
+    params: { id: 7 },
+    body: firstSong
+  }, makeResponse())
+  await SaveDataController.saveSongPresetsWithHistory({
+    params: { id: 7 },
+    body: secondSong
+  }, makeResponse())
+
+  const historyFolder = path.join(tempRoot, 'history', 'songpresets', '7')
+  const snapshots = fs.readdirSync(historyFolder).map(fileName =>
+    JSON.parse(fs.readFileSync(path.join(historyFolder, fileName), 'utf8')))
+
+  assert.strictEqual(snapshots.length, 2)
+  assert(snapshots.find(snapshot => snapshot.programList[0].presetList[0].volume === 70))
+  assert(snapshots.find(snapshot => snapshot.programList[0].presetList[0].volume === 85))
+  assert.deepStrictEqual(JSON.parse(fs.readFileSync(path.join(tempRoot, 'song', '7.json'), 'utf8')), secondSong)
+}
+
+async function testReadSongPresetHistoryReturnsNewestFirst () {
+  const olderFolder = path.join(tempRoot, 'history', 'songpresets', '7')
+  fs.mkdirSync(olderFolder, { recursive: true })
+  const olderFile = path.join(olderFolder, 'older.json')
+  writeJson(olderFile, {
+    id: 7,
+    name: 'Faun oo',
+    programList: [{ id: 1, presetList: [{ volume: 70 }] }]
+  })
+  const olderTime = new Date('2026-09-07T10:00:00.000Z')
+  fs.utimesSync(olderFile, olderTime, olderTime)
+
+  const newerFile = path.join(olderFolder, 'newer.json')
+  writeJson(newerFile, {
+    id: 7,
+    name: 'Faun oo',
+    programList: [{ id: 1, presetList: [{ volume: 85 }] }]
+  })
+  const newerTime = new Date('2026-09-08T10:00:00.000Z')
+  fs.utimesSync(newerFile, newerTime, newerTime)
+
+  const res = makeResponse()
+  await ReadDataController.readSongPresetHistory({ params: { id: 7 } }, res)
+
+  assert.deepStrictEqual(res.payload.map(record => record.id), ['newer.json', 'older.json'])
+  assert.strictEqual(res.payload[0].songName, 'Faun oo')
+  assert.strictEqual(res.payload[0].programList[0].presetList[0].volume, 85)
+}
+
+async function testReadSongPresetHistoryReturnsEmptyListWhenMissing () {
+  const res = makeResponse()
+  await ReadDataController.readSongPresetHistory({ params: { id: 999 } }, res)
+  assert.deepStrictEqual(res.payload, [])
+}
+
+async function testSavePresetWritesImmutableHistory () {
+  const preset = {
+    id: 120,
+    name: 'Updated Drive',
+    refinstrument: 1,
+    midipc: 25
+  }
+
+  await SaveDataController.savePresetWithHistory({
+    params: { id: 120 },
+    body: preset
+  }, makeResponse())
+
+  const historyFolder = path.join(tempRoot, 'history', 'preset', '120')
+  const historyFiles = fs.readdirSync(historyFolder)
+  assert.strictEqual(historyFiles.length, 1)
+  assert.deepStrictEqual(
+    JSON.parse(fs.readFileSync(path.join(historyFolder, historyFiles[0]), 'utf8')),
+    preset
+  )
+  assert.deepStrictEqual(JSON.parse(fs.readFileSync(path.join(tempRoot, 'preset', '120.json'), 'utf8')), preset)
+}
+
 async function testDeletePresetRemovesFileAndInvalidatesPresetUsageCache () {
   let res = await callGetPresetUsage(1, 24)
   assert.strictEqual(res.payload.usageCount, 1)
@@ -480,6 +569,7 @@ function testRoutesRegisterApiBusinessEndpoints () {
 
   assert.deepStrictEqual(registeredRoutes, [
     { method: 'GET', routePath: '/song/:id' },
+    { method: 'GET', routePath: '/history/songpresets/:id' },
     { method: 'GET', routePath: '/all/song' },
     { method: 'GET', routePath: '/id/song' },
     { method: 'GET', routePath: '/all/instrument' },
@@ -510,6 +600,7 @@ function testRoutesRegisterApiWriteEndpoints () {
 
   assert.deepStrictEqual(registeredRoutes, [
     { method: 'PUT', routePath: '/song/:id' },
+    { method: 'PUT', routePath: '/songpresets/:id' },
     { method: 'PUT', routePath: '/instrument/:id' },
     { method: 'PUT', routePath: '/preset/:id' },
     { method: 'DELETE', routePath: '/preset/:id' },
@@ -535,6 +626,10 @@ async function run () {
       testPresetUsageReturnsEmptyUsageList,
       testPresetUsageSkipsBrokenSongReferences,
       testSaveDataInvalidatesPresetUsageCache,
+      testSaveSongPresetsWritesImmutableHistory,
+      testReadSongPresetHistoryReturnsNewestFirst,
+      testReadSongPresetHistoryReturnsEmptyListWhenMissing,
+      testSavePresetWritesImmutableHistory,
       testSaveDataWritesNonPresetDataWithoutInvalidatingPresetUsageCache,
       testSaveDataRejectsMissingFolder,
       testDeletePresetRemovesFileAndInvalidatesPresetUsageCache,

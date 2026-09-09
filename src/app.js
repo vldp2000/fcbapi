@@ -15,8 +15,12 @@ app.use(bodyParser.urlencoded({ extended: false }))
 app.use(bodyParser.json())
 app.use(cors())
 
-// const io = require('socket.io')(server);
-const io = require('socket.io')(server);
+const { Server } = require('socket.io')
+const io = new Server(server, {
+  // Keep Engine.IO v3 enabled while older browser/controller clients are retired.
+  allowEIO3: true,
+  cors: { origin: '*' }
+})
 try {
   io.on('connection', function(socket) {
     // console.log(`--- message socket connected. client ${socket.id}`)

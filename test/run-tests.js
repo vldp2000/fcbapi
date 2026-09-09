@@ -617,6 +617,15 @@ function testSocketRelayIncludesGigChangedMessage () {
   assert(appSource.includes('config.viewGigChangedMessage'), 'app.js should relay gig changed messages over Socket.IO')
 }
 
+function testSocketServerSupportsCurrentAndLegacyClients () {
+  const appSource = fs.readFileSync(path.join(__dirname, '..', 'src', 'app.js'), 'utf8')
+  const packageJson = JSON.parse(fs.readFileSync(path.join(__dirname, '..', 'package.json'), 'utf8'))
+
+  assert(packageJson.dependencies['socket.io'].startsWith('^4.'), 'API should use Socket.IO 4 for current UI and Python clients')
+  assert(appSource.includes('new Server(server'), 'API should attach the Socket.IO server to the HTTP server')
+  assert(appSource.includes('allowEIO3: true'), 'API should temporarily accept legacy Engine.IO 3 clients')
+}
+
 async function run () {
   try {
     const tests = [
@@ -645,7 +654,8 @@ async function run () {
       testGetScheduledGigIdReadsCurrentGig,
       testRoutesRegisterApiBusinessEndpoints,
       testRoutesRegisterApiWriteEndpoints,
-      testSocketRelayIncludesGigChangedMessage
+      testSocketRelayIncludesGigChangedMessage,
+      testSocketServerSupportsCurrentAndLegacyClients
     ]
 
     for (let test of tests) {
